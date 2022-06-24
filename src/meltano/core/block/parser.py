@@ -64,6 +64,7 @@ class BlockParser:  # noqa: D101
         full_refresh: Optional[bool] = False,
         no_state_update: Optional[bool] = False,
         force: Optional[bool] = False,
+        refresh_tap_catalog: Optional[bool] = False,
     ):
         """
         Parse a meltano run command invocation into a list of blocks.
@@ -85,6 +86,7 @@ class BlockParser:  # noqa: D101
         self._full_refresh = full_refresh
         self._no_state_update = no_state_update
         self._force = force
+        self._refresh_tap_catalog = refresh_tap_catalog
 
         self._plugins_service = ProjectPluginsService(project)
         self._plugins: List[ProjectPlugin] = []
@@ -253,6 +255,7 @@ class BlockParser:  # noqa: D101
             base_builder.with_force(self._force)
             .with_full_refresh(self._full_refresh)
             .with_no_state_update(self._no_state_update)
+            .with_refresh_tap_catalog(self._refresh_tap_catalog)
         )
 
         if self._plugins[offset].type != PluginType.EXTRACTORS:

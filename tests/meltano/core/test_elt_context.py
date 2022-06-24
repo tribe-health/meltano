@@ -89,6 +89,7 @@ class TestELTContext:
             .with_loader(target_postgres.name)
             .with_transform(tap_mock_transform.name)
             .with_select_filter(["entity", "!other_entity"])
+            .with_refresh_tap_catalog(True)
             .context()
         )
 
@@ -148,3 +149,7 @@ class TestELTContext:
         assert (
             invoker.plugin_config_extras["_select_filter"] == elt_context.select_filter
         )
+
+    @pytest.mark.asyncio
+    async def test_refresh_tap_catalog(self, elt_context, session):
+        assert elt_context.refresh_tap_catalog

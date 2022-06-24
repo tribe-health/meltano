@@ -47,6 +47,7 @@ class ELBContext:  # noqa: WPS230
         force: Optional[bool] = False,
         update_state: Optional[bool] = True,
         base_output_logger: Optional[OutputLogger] = None,
+        refresh_tap_catalog: Optional[bool] = False,
     ):
         """Use an ELBContext to pass information on to ExtractLoadBlocks.
 
@@ -69,6 +70,7 @@ class ELBContext:  # noqa: WPS230
         self.full_refresh = full_refresh
         self.force = force
         self.update_state = update_state
+        self.refresh_tap_catalog = refresh_tap_catalog
 
         # not yet used but required to satisfy the interface
         self.dry_run = False
@@ -115,6 +117,7 @@ class ELBContextBuilder:
         self._full_refresh = False
         self._state_update = True
         self._force = False
+        self._refresh_tap_catalog = False
         self._env = {}
         self._blocks = []
 
@@ -169,6 +172,18 @@ class ELBContextBuilder:
             self
         """
         self._force = force
+        return self
+
+    def with_refresh_tap_catalog(self, refresh_tap_catalog: bool):
+        """Set whether the tap catalog should be refreshed.
+
+        Args:
+            refresh_tap_catalog: Whether the tap catalog should be refreshed.
+
+        Returns:
+            self
+        """
+        self._refresh_tap_catalog = refresh_tap_catalog
         return self
 
     def make_block(
@@ -269,6 +284,7 @@ class ELBContextBuilder:
             force=self._force,
             update_state=self._state_update,
             base_output_logger=self._base_output_logger,
+            refresh_tap_catalog=self._refresh_tap_catalog,
         )
 
 

@@ -328,7 +328,14 @@ class SingerTap(SingerPlugin):
         """
         catalog_path = plugin_invoker.files["catalog"]
         catalog_cache_key_path = plugin_invoker.files["catalog_cache_key"]
-        if catalog_path.exists():
+
+        if plugin_invoker.context is not None:
+            refresh_tap_catalog = plugin_invoker.context.refresh_tap_catalog
+        else:
+            logger.warning("No context found")
+            refresh_tap_catalog = False
+
+        if catalog_path.exists() and not refresh_tap_catalog:
             try:
                 cached_key = catalog_cache_key_path.read_text()
                 new_cache_key = self.catalog_cache_key(plugin_invoker)

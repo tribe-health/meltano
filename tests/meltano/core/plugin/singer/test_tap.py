@@ -179,9 +179,14 @@ class TestSingerTap:
 
     @pytest.mark.asyncio
     async def test_discover_catalog(  # noqa: WPS213
-        self, session, plugin_invoker_factory, subject
+        self, session, plugin_invoker_factory, subject, elt_context_builder
     ):
-        invoker = plugin_invoker_factory(subject)
+        elt_context = (
+            elt_context_builder.with_session(session)
+            .with_refresh_tap_catalog(False)
+            .context()
+        )
+        invoker = plugin_invoker_factory(subject, context=elt_context)
 
         catalog_path = invoker.files["catalog"]
         catalog_cache_key_path = invoker.files["catalog_cache_key"]
@@ -219,6 +224,16 @@ class TestSingerTap:
                 mocked_run_discovery.assert_not_called()
                 assert json.loads(catalog_path.read_text()) == {"discovered": True}
                 assert catalog_cache_key_path.exists()
+
+                ####
+                mocked_run_discovery.reset_mock()
+                assert not invoker.context.refresh_tap_catalog
+                await subject.discover_catalog(invoker)
+                mocked_run_discovery.assert_not_called()
+
+                invoker.context.refresh_tap_catalog = True
+                await subject.discover_catalog(invoker)
+                assert mocked_run_discovery.called
 
                 # If the cache key no longer matches, discovery is invoked again
                 mocked_run_discovery.reset_mock()

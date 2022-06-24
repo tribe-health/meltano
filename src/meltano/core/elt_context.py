@@ -96,6 +96,7 @@ class ELTContext:  # noqa: WPS230
         state: str | None = None,
         plugins_service: ProjectPluginsService = None,
         base_output_logger: OutputLogger | None = None,
+        refresh_tap_catalog: bool | None = None,
     ):
         """Initialise ELT Context instance.
 
@@ -131,6 +132,7 @@ class ELTContext:  # noqa: WPS230
         self.select_filter = select_filter or []
         self.catalog = catalog
         self.state = state
+        self.refresh_tap_catalog = refresh_tap_catalog
 
         self.plugins_service = plugins_service or ProjectPluginsService(project)
         self.base_output_logger = base_output_logger
@@ -227,6 +229,7 @@ class ELTContextBuilder:  # noqa: WPS214
         self._catalog = None
         self._state = None
         self._base_output_logger = None
+        self._refresh_tap_catalog = False
 
     def with_session(self, session: Session) -> ELTContextBuilder:
         """Include session when building context.
@@ -377,6 +380,18 @@ class ELTContextBuilder:  # noqa: WPS214
         self._state = state
         return self
 
+    def with_refresh_tap_catalog(self, refresh_tap_catalog: bool) -> ELTContextBuilder:
+        """Refresh tap catalog flag when building context.
+
+        Args:
+            refresh_tap_catalog: Flag. Refresh tap catalog.
+
+        Returns:
+            Updated ELTContextBuilder instance.
+        """
+        self._refresh_tap_catalog = refresh_tap_catalog
+        return self
+
     def set_base_output_logger(self, base_output_logger: OutputLogger):  # noqa: WPS615
         """Set the base output logger for use in this ELTContext.
 
@@ -497,4 +512,5 @@ class ELTContextBuilder:  # noqa: WPS214
             state=self._state,
             plugins_service=self.plugins_service,
             base_output_logger=self._base_output_logger,
+            refresh_tap_catalog=self._refresh_tap_catalog,
         )

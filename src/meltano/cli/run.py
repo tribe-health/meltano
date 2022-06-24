@@ -34,6 +34,11 @@ logger = structlog.getLogger(__name__)
     is_flag=True,
 )
 @click.option(
+    "--refresh-tap-catalog",
+    help="Lorem Ipsum.",
+    is_flag=True,
+)
+@click.option(
     "--no-state-update",
     help="Run without state saving. Applies to all pipelines.",
     is_flag=True,
@@ -54,6 +59,7 @@ async def run(
     project: Project,
     dry_run: bool,
     full_refresh: bool,
+    refresh_tap_catalog: bool,
     no_state_update: bool,
     force: bool,
     blocks: list[str],
@@ -97,6 +103,7 @@ async def run(
         full_refresh=full_refresh,
         no_state_update=no_state_update,
         force=force,
+        # refresh_tap_catalog=refresh_tap_catalog,
     )
     with tracker.with_contexts(cmd_ctx):
         tracker.track_command_event(CliEvent.started)
@@ -104,7 +111,13 @@ async def run(
         parser_blocks = []  # noqa: F841
         try:
             parser = BlockParser(
-                logger, project, blocks, full_refresh, no_state_update, force
+                logger,
+                project,
+                blocks,
+                full_refresh,
+                no_state_update,
+                force,
+                refresh_tap_catalog,
             )
             parsed_blocks = list(parser.find_blocks(0))
             if not parsed_blocks:

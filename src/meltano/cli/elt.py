@@ -49,6 +49,11 @@ logger = structlog_stdlib.get_logger(__name__)
     is_flag=True,
 )
 @click.option(
+    "--refresh-tap-catalog",
+    help="Lorem Ipsum.",
+    is_flag=True,
+)
+@click.option(
     "--select",
     "-s",
     help="Select only these specific entities for extraction.",
@@ -87,6 +92,7 @@ async def elt(
     transform,
     dry,
     full_refresh,
+    refresh_tap_catalog,
     select,
     exclude,
     catalog,
@@ -121,6 +127,7 @@ async def elt(
         dump=dump,
         state_id=state_id,
         force=force,
+        # refresh_tap_catalog=refresh_tap_catalog,
     )
     tracker.add_contexts(cmd_ctx)
     tracker.track_command_event(CliEvent.started)
@@ -154,6 +161,7 @@ async def elt(
             catalog=catalog,
             state=state,
             plugins_service=plugins_service,
+            refresh_tap_catalog=refresh_tap_catalog,
         )
 
         if dump:
@@ -185,6 +193,7 @@ def _elt_context_builder(
     catalog=None,
     state=None,
     plugins_service=None,
+    refresh_tap_catalog=False,
 ):
     select_filter = select_filter or []
     transform_name = None
@@ -206,6 +215,7 @@ def _elt_context_builder(
         .with_select_filter(select_filter)
         .with_catalog(catalog)
         .with_state(state)
+        .with_refresh_tap_catalog(refresh_tap_catalog)
     )
 
 
