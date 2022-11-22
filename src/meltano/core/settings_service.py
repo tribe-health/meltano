@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from enum import Enum
 from typing import Generator, Iterable
 
+from meltano.core.encryption import EncryptionKey, get_key
 from meltano.core.project import Project
 from meltano.core.utils import expand_env_vars as do_expand_env_vars
 from meltano.core.utils import flatten
@@ -306,8 +307,9 @@ class SettingsService(ABC):  # noqa: WPS214
         redacted=False,
         source=SettingValueStore.AUTO,
         source_manager=None,
-        setting_def=None,
+        setting_def: SettingDefinition | None = None,
         expand_env_vars=True,
+        encryption_key: EncryptionKey | None = None,
         **kwargs,
     ):
         """Get a setting with associated metadata.
@@ -406,6 +408,17 @@ class SettingsService(ABC):  # noqa: WPS214
                 metadata["uncast_value"] = value
                 value = cast_value
 
+            # TODO: Implement decryption
+            # Decrypt password values
+            key = get_key("fernet://WOiNWLYnrwaNgRcOs52rKaihx3b8ptXyV9jylf3f8l8=")
+            if (
+                value
+                and setting_def.kind == SettingKind.PASSWORD
+                and key.is_encrypted(value)
+            ):
+                # value: str
+                logger.info("%s: %s", value, key.encrypt(value))
+
             # we don't want to leak secure informations
             # so we redact all `passwords`
             if redacted and value and setting_def.is_redacted:
@@ -421,6 +434,18 @@ class SettingsService(ABC):  # noqa: WPS214
             )
 
         return value, metadata
+
+    def decrypt_password(self, value: str) -> str:
+        """Decrypt a password value.
+
+        Args:
+            value: the value to decrypt
+
+        Returns:
+            the decrypted value
+        """
+        # TODO: Implement decryption
+        return value
 
     def get_with_source(self, *args, **kwargs):
         """Get a setting value along with its source.
@@ -562,7 +587,7 @@ class SettingsService(ABC):  # noqa: WPS214
         self.log(f"Reset settings with metadata: {metadata}")
         return metadata
 
-    def definitions(self, extras=None) -> Iterable[dict]:
+    def definitions(self, extras=None) -> list[SettingDefinition]:
         """Return setting definitions along with extras.
 
         Args:
