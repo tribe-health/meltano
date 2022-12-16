@@ -9,6 +9,7 @@ from typing import Generator
 import structlog
 
 from meltano.core.environment import EnvironmentPluginConfig
+from meltano.core.error import MeltanoError
 from meltano.core.hub import MeltanoHubService
 from meltano.core.plugin.base import VariantNotFoundError
 from meltano.core.plugin_lock_service import PluginLockService
@@ -24,14 +25,18 @@ from .project import Project
 logger = structlog.stdlib.get_logger(__name__)
 
 
-class DefinitionSource(str, enum.Enum):
+class DefinitionSource(enum.Flag):
     """The source of a plugin definition."""
 
-    DISCOVERY = "discovery"
-    HUB = "hub"
-    CUSTOM = "custom"
-    LOCKFILE = "lockfile"
-    INHERITED = "inherited"
+    NONE = 0
+    DISCOVERY = enum.auto()
+    HUB = enum.auto()
+    CUSTOM = enum.auto()
+    LOCKFILE = enum.auto()
+    INHERITED = enum.auto()
+
+    ANY = DISCOVERY | HUB | CUSTOM | LOCKFILE | INHERITED
+    LOCAL = ~HUB
 
 
 class PluginAlreadyAddedException(Exception):
@@ -45,6 +50,28 @@ class PluginAlreadyAddedException(Exception):
         """
         self.plugin = plugin
         super().__init__()
+
+
+class PluginDefinitionNotFoundError(MeltanoError):
+    """Raised when no plugin definition is found."""
+
+    def __init__(self, plugin: ProjectPlugin):
+        """Initialize a new error.
+
+        Args:
+            plugin: The plugin that was not found.
+        """
+        self.plugin = plugin
+        super().__init__(
+            reason=(
+                "Could not find a definition for "
+                f"{plugin.type.descriptor} {plugin.name}"
+            ),
+            instruction=(
+                "Try running `meltano lock --update --all` to ensure "
+                "your plugins are up to date."
+            ),
+        )
 
 
 class ProjectPluginsService:  # noqa: WPS214, WPS230 (too many methods, attributes)
@@ -85,23 +112,7 @@ class ProjectPluginsService:  # noqa: WPS214, WPS230 (too many methods, attribut
         self._use_cache = use_cache
 
         self.settings_service = ProjectSettingsService(project)
-
-        self._use_discovery_yaml: bool = True
-        self._prefer_source = None
-
-    @contextmanager
-    def disallow_discovery_yaml(self) -> Generator[None, None, None]:
-        """Disallow the discovery yaml from being used.
-
-        This is useful when you want to add a plugin to the project without
-        having to worry about the discovery yaml.
-
-        Yields:
-            None.
-        """
-        self._use_discovery_yaml = False
-        yield
-        self._use_discovery_yaml = True
+        self._prefer_source = DefinitionSource.LOCAL
 
     @property
     def current_plugins(self):
@@ -460,13 +471,13 @@ class ProjectPluginsService:  # noqa: WPS214, WPS230 (too many methods, attribut
             The parent plugin and the source of the parent.
 
         Raises:
-            error: If the parent plugin is not found.
+            PluginDefinitionNotFoundError: If the parent plugin is not found.
         """
         error = None
         if (
             plugin.inherit_from
             and not plugin.is_variant_set
-            and self._prefer_source in {None, DefinitionSource.INHERITED}
+            and DefinitionSource.INHERITED in self._prefer_source
         ):
             try:
                 return (
@@ -478,7 +489,7 @@ class ProjectPluginsService:  # noqa: WPS214, WPS230 (too many methods, attribut
             except PluginNotFoundError as inherited_exc:
                 error = inherited_exc
 
-        if self._prefer_source in {None, DefinitionSource.LOCKFILE}:
+        if DefinitionSource.LOCKFILE in self._prefer_source:
             try:
                 return (
                     self.locked_definition_service.get_base_plugin(
@@ -490,10 +501,7 @@ class ProjectPluginsService:  # noqa: WPS214, WPS230 (too many methods, attribut
             except PluginNotFoundError as lockfile_exc:
                 error = lockfile_exc
 
-        if self._use_discovery_yaml and self._prefer_source in {
-            None,
-            DefinitionSource.DISCOVERY,
-        }:
+        if DefinitionSource.DISCOVERY in self._prefer_source:
             try:
                 return (
                     self._get_parent_from_discovery(plugin),
@@ -502,16 +510,15 @@ class ProjectPluginsService:  # noqa: WPS214, WPS230 (too many methods, attribut
             except Exception as discovery_exc:
                 error = discovery_exc
 
-        if self._prefer_source in {None, DefinitionSource.HUB}:
+        if DefinitionSource.HUB in self._prefer_source:
             try:
                 return (self._get_parent_from_hub(plugin), DefinitionSource.HUB)
             except Exception as hub_exc:
                 error = hub_exc
 
-        if error:
-            raise error
+        raise PluginDefinitionNotFoundError(plugin) from error
 
-    def get_parent(self, plugin: ProjectPlugin) -> ProjectPlugin | None:
+    def get_parent(self, plugin: ProjectPlugin) -> ProjectPlugin:
         """Get plugin's parent plugin.
 
         Args:

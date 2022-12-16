@@ -11,7 +11,11 @@ from meltano.core.plugin.error import PluginNotFoundError, PluginParentNotFoundE
 from meltano.core.plugin.project_plugin import ProjectPlugin
 from meltano.core.plugin_discovery_service import LockedDefinitionService
 from meltano.core.project import Project
-from meltano.core.project_plugins_service import DefinitionSource, ProjectPluginsService
+from meltano.core.project_plugins_service import (
+    DefinitionSource,
+    PluginDefinitionNotFoundError,
+    ProjectPluginsService,
+)
 
 
 @pytest.fixture
@@ -111,6 +115,16 @@ class TestProjectPluginsService:
         assert result.settings == expected.settings
         assert result.settings[-1].name == "foo"
 
+    @pytest.mark.order(2)
+    def test_get_parent_no_source_enabled(
+        self,
+        subject: ProjectPluginsService,
+        tap: ProjectPlugin,
+    ):
+        with subject.use_preferred_source(DefinitionSource.NONE):
+            with pytest.raises(PluginDefinitionNotFoundError):
+                subject.get_parent(tap)
+
     def test_get_parent_no_lockfiles(
         self,
         subject: ProjectPluginsService,
@@ -157,8 +171,10 @@ class TestProjectPluginsService:
         nonexistent_parent = ProjectPlugin(
             PluginType.EXTRACTORS, name="tap-foo", inherit_from="tap-bar"
         )
-        with pytest.raises(PluginParentNotFoundError):
+        with pytest.raises(PluginDefinitionNotFoundError) as excinfo:
             assert subject.get_parent(nonexistent_parent)
+
+        assert isinstance(excinfo.value.__cause__, PluginParentNotFoundError)
 
     def test_update_plugin(self, subject, tap):
         # update a tap with a random value

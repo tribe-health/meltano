@@ -7,7 +7,11 @@ import enum
 from .plugin import BasePlugin, PluginType, Variant
 from .plugin.project_plugin import ProjectPlugin
 from .project import Project
-from .project_plugins_service import PluginAlreadyAddedException, ProjectPluginsService
+from .project_plugins_service import (
+    DefinitionSource,
+    PluginAlreadyAddedException,
+    ProjectPluginsService,
+)
 
 
 class PluginAddedReason(str, enum.Enum):
@@ -66,7 +70,7 @@ class ProjectAddService:
             plugin_type, plugin_name, **attrs, default_variant=Variant.DEFAULT_NAME
         )
 
-        with self.plugins_service.disallow_discovery_yaml():
+        with self.plugins_service.use_preferred_source(~DefinitionSource.DISCOVERY):
             self.plugins_service.ensure_parent(plugin)
 
             # If we are inheriting from a base plugin definition,
@@ -97,7 +101,7 @@ class ProjectAddService:
         """
         return self.plugins_service.add_to_file(plugin)
 
-    def add_required(
+    def add_required(  # noqa: WPS210
         self,
         plugin: ProjectPlugin,
         lock: bool = True,
